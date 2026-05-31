@@ -1,0 +1,49 @@
+#!/bin/bash
+cd "${0%/*}" || exit  # Run from this directory
+
+# Stop at first error
+set -e
+set -o pipefail
+
+# Check if OpenFOAM/FOAM has been sourced
+if [[ -z "${WM_PROJECT}" ]]
+then
+    echo "Please source the OpenFOAM/FOAM bashrc first!"
+    exit 1
+fi
+
+if [[ -z "${PETSC_DIR}" ]]
+then
+    echo "PETSC_DIR is not set: newtonIcoFluid requires PETSc."
+    exit 1
+fi
+
+# Parse arguments for library compilation
+if [ -f "$WM_PROJECT_DIR"/wmake/scripts/AllwmakeParseArguments ]
+then
+    . "$WM_PROJECT_DIR"/wmake/scripts/AllwmakeParseArguments
+fi
+
+# Compile libraries
+(cd src && ./Allwmake $* 2>&1 | tee log.Allwmake)
+
+# Compile applications
+(cd applications && ./Allwmake $* 2>&1 | tee log.Allwmake)
+
+# Check if the build succeeded
+echo "Checking if the installation was a success:"
+N_ERRORS_1=$(find . -name log.Allwmake | xargs grep -h " Error " | wc -l || true)
+N_ERRORS_2=$(find . -name log.Allwmake | xargs grep -h " Stop." | wc -l || true)
+if [[ $N_ERRORS_1 -gt 0 ]] || [[ $N_ERRORS_2 -gt 0 ]]
+then
+    echo "** BUILD ERROR **"
+    echo "There were build errors in the following logs:"
+    echo $(find . -name log.Allwmake | xargs grep -l " Error ")
+    echo $(find . -name log.Allwmake | xargs grep -l " Stop.")
+    echo; echo "Please examine these logs for additional details"; echo
+    exit 1
+else
+    echo "There were no build errors: enjoy newtonIcoFluid!"; echo
+fi
+
+#------------------------------------------------------------------------------

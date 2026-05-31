@@ -1,0 +1,13 @@
+#!/bin/bash
+cd "${0%/*}" || exit  # Run from this directory
+set -o pipefail
+
+# Parse arguments for library compilation
+if [ -f "$WM_PROJECT_DIR"/wmake/scripts/AllwmakeParseArguments ]
+then
+    . "$WM_PROJECT_DIR"/wmake/scripts/AllwmakeParseArguments
+fi
+
+(cd solids4FoamModels && ./Allwmake $targetType $* 2>&1 | tee log.Allwmake)
+
+#------------------------------------------------------------------------------

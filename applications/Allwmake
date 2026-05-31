@@ -1,0 +1,16 @@
+#!/bin/bash
+cd "${0%/*}" || exit  # Run from this directory
+set -o pipefail
+
+# Parse arguments for library compilation
+optAll="all"
+if [ -f "$WM_PROJECT_DIR"/wmake/scripts/AllwmakeParseArguments ]
+then
+    . "$WM_PROJECT_DIR"/wmake/scripts/AllwmakeParseArguments
+    optAll="-all"
+fi
+
+wmake $optAll $targetType solvers
+wmake $optAll $targetType scripts
+
+#------------------------------------------------------------------------------

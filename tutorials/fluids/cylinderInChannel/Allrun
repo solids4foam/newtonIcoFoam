@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Source tutorial functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+source newtonIcoFluidScripts.sh
+
+newtonIcoFluid::convertCaseFormat .
+
+# Select the default newtonIcoFluid dictionaries
+cp -f constant/fluidProperties.newtonIcoFluid constant/fluidProperties
+cp -f system/fvSolution.newtonIcoFluid system/fvSolution
+
+# Use the physics preconditioner variant if requested
+for arg in "$@"; do
+    if [[ "$arg" == "newtonIcoFluidPhysicsPC" \
+        || "$arg" == "newtonIcoFluid.physicsPC" ]]; then
+        cp -f system/fvSolution.newtonIcoFluid.physicsPC system/fvSolution
+    fi
+done
+
+# Create the mesh
+newtonIcoFluid::runApplication fluentMeshToFoam cylinderInChannel.msh
+newtonIcoFluid::runApplication changeDictionary
+
+# Run the solver
+newtonIcoFluid::runApplication newtonIcoFoam
+
+# Create plots
+if command -v gnuplot &> /dev/null
+then
+    if [ $(find . -name force.dat | wc -l) -eq 1 ]
+    then
+        echo "Generating force.pdf using gnuplot"
+        gnuplot force.gnuplot &> /dev/null \
+            || echo "Could not generate force.pdf using gnuplot"
+    fi
+else
+    echo "Please install gnuplot if you would like to generate the plots"
+fi

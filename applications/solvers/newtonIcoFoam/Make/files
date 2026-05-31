@@ -1,0 +1,3 @@
+newtonIcoFoam.C
+
+EXE = $(FOAM_MODULE_APPBIN)/newtonIcoFoam
