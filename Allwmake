@@ -14,7 +14,7 @@ fi
 
 if [[ -z "${PETSC_DIR}" ]]
 then
-    echo "PETSC_DIR is not set: newtonIcoFluid requires PETSc."
+    echo "PETSC_DIR is not set: newtonIcoFoam requires PETSc."
     exit 1
 fi
 
@@ -43,7 +43,7 @@ then
     echo; echo "Please examine these logs for additional details"; echo
     exit 1
 else
-    echo "There were no build errors: enjoy newtonIcoFluid!"; echo
+    echo "There were no build errors: enjoy newtonIcoFoam!"; echo
 fi
 
 #------------------------------------------------------------------------------

@@ -1,8 +1,8 @@
-# newtonIcoFluid
+# newtonIcoFoam
 
-`newtonIcoFluid` is a standalone OpenFOAM solver extracted from solids4foam.
-It provides `newtonIcoFoam`, an incompressible Newtonian laminar fluid solver
-using the `newtonIcoFluid` PETSc SNES implementation.
+`newtonIcoFoam` is a standalone OpenFOAM solver extracted from solids4foam.
+It directly uses the `newtonIcoFluid` PETSc SNES implementation for
+incompressible Newtonian laminar flow.
 
 ## Build
 
