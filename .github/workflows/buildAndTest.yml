@@ -56,6 +56,7 @@ jobs:
               case "${case}" in
                 tutorials/fluids/cylinderInChannel)
                   foamDictionary system/controlDict -entry endTime -set 0.05
+                  foamDictionary system/controlDict -entry functions -remove
                   ;;
                 tutorials/fluids/decayingTaylorGreenVortex)
                   foamDictionary system/controlDict -entry endTime -set 0.002
