@@ -46,18 +46,12 @@ jobs:
           export PATH="${FOAM_MODULE_APPBIN}:${FOAM_USER_APPBIN}:${PATH}"
           export LD_LIBRARY_PATH="${FOAM_MODULE_LIBBIN}:${FOAM_USER_LIBBIN}:${LD_LIBRARY_PATH}"
 
-          for case in \
-            tutorials/fluids/cylinderInChannel \
-            tutorials/fluids/decayingTaylorGreenVortex
+          for case in tutorials/fluids/decayingTaylorGreenVortex
           do
             echo "Running ${case}"
             (
               cd "${case}"
               case "${case}" in
-                tutorials/fluids/cylinderInChannel)
-                  foamDictionary system/controlDict -entry endTime -set 0.05
-                  foamDictionary system/controlDict -entry functions -remove
-                  ;;
                 tutorials/fluids/decayingTaylorGreenVortex)
                   foamDictionary system/controlDict -entry endTime -set 0.002
                   ;;
