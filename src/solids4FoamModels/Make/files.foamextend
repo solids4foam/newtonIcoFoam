@@ -20,6 +20,7 @@ numerics/globalPolyPatch/globalPolyPatch.C
 numerics/interpolationTable/tableReaders/tableReaders.C
 numerics/interpolationTable/tableReaders/openFoam/openFoamTableReaders.C
 numerics/interpolationTable/tableReaders/csv/csvTableReaders.C
+numerics/leastSquaresS4fGrad/leastSquaresS4fGrads.C
 numerics/leastSquaresS4fGrad/leastSquaresS4fVectors.C
 numerics/patchCorrectionVectors/patchCorrectionVectors.C
 numerics/stabilisationModels/stabilisationModel/stabilisationModel.C

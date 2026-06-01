@@ -39,7 +39,11 @@ int main(int argc, char *argv[])
 #   include "createTime.H"
 #   include "newtonIcoFoamWriteHeader.H"
 
-    Foam::fluidModels::newtonIcoFluid fluid(runTime);
+    Foam::autoPtr<Foam::fluidModels::newtonIcoFluid> fluidPtr
+    (
+        new Foam::fluidModels::newtonIcoFluid(runTime)
+    );
+    Foam::fluidModels::newtonIcoFluid& fluid = fluidPtr();
 
     while (runTime.run())
     {
