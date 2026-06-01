@@ -1,0 +1,63 @@
+# Build and test newtonIcoFoam using a Docker container
+name: Build and test
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build and test on OpenFOAM-v2512-PETSc
+    runs-on: ubuntu-22.04
+    container:
+      image: philippic/openfoam-v2512:ubuntu-22.04-petsc-no-openmp-system-blas
+      options: --user 1001
+      env:
+        HOME: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Allwmake
+        shell: bash -l {0}
+        run: |
+          source /usr/lib/openfoam/openfoam2512/etc/bashrc
+          ./Allwmake -j
+
+      - name: PETSc sanity check
+        shell: bash -l {0}
+        run: |
+          source /usr/lib/openfoam/openfoam2512/etc/bashrc
+          echo "PETSC_DIR = $PETSC_DIR"
+          test -d "$PETSC_DIR/include"
+
+      - name: Run fluid tutorial tests
+        shell: bash -l {0}
+        run: |
+          source /usr/lib/openfoam/openfoam2512/etc/bashrc
+          export OMP_NUM_THREADS=1
+          export OPENBLAS_NUM_THREADS=1
+          export MKL_NUM_THREADS=1
+          export PATH="${FOAM_MODULE_APPBIN}:${FOAM_USER_APPBIN}:${PATH}"
+          export LD_LIBRARY_PATH="${FOAM_MODULE_LIBBIN}:${FOAM_USER_LIBBIN}:${LD_LIBRARY_PATH}"
+
+          for case in \
+            tutorials/fluids/cylinderInChannel \
+            tutorials/fluids/decayingTaylorGreenVortex
+          do
+            echo "Running ${case}"
+            (cd "${case}" && ./regressionTest.sh)
+          done
+
+      - name: Upload tutorial logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutorial-test-logs.OpenFOAM-v2512-PETSc
+          path: |
+            tutorials/fluids/**/log.*
+            tutorials/fluids/**/postProcessing
+          retention-days: 10
