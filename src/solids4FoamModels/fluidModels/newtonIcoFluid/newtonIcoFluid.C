@@ -69,6 +69,109 @@ bool containsLabel(const Foam::labelList& labels, const Foam::label value)
 }
 
 
+Foam::Switch lookupSwitch
+(
+    const Foam::dictionary& dict,
+    const Foam::word& name,
+    const Foam::Switch defaultValue
+)
+{
+    bool value(defaultValue);
+    dict.readIfPresent(name, value);
+
+    return Foam::Switch(value);
+}
+
+
+void setPressureReference
+(
+    const Foam::volScalarField& p,
+    const Foam::dictionary& dict,
+    Foam::label& refCelli,
+    Foam::scalar& refValue
+)
+{
+    const Foam::word refCellName = p.name() + "RefCell";
+    const Foam::word refPointName = p.name() + "RefPoint";
+    const Foam::word refValueName = p.name() + "RefValue";
+
+    if (dict.found(refCellName))
+    {
+        if (Foam::Pstream::master())
+        {
+            dict.readEntry(refCellName, refCelli);
+
+            if (refCelli < 0 || refCelli >= p.mesh().nCells())
+            {
+                FatalIOErrorInFunction(dict)
+                    << "Illegal master cellID " << refCelli
+                    << ". Should be 0.." << p.mesh().nCells()
+                    << Foam::exit(Foam::FatalIOError);
+            }
+        }
+        else
+        {
+            refCelli = -1;
+        }
+    }
+    else if (dict.found(refPointName))
+    {
+        const Foam::point refPointi(dict.get<Foam::point>(refPointName));
+        const Foam::vectorField& C = p.mesh().C();
+
+        Foam::scalar nearestDist = Foam::GREAT;
+        Foam::label nearestCell = -1;
+
+        forAll(C, cellI)
+        {
+            const Foam::scalar dist = Foam::magSqr(C[cellI] - refPointi);
+
+            if (dist < nearestDist)
+            {
+                nearestDist = dist;
+                nearestCell = cellI;
+            }
+        }
+
+        Foam::scalar globalNearestDist = nearestDist;
+        Foam::reduce(globalNearestDist, Foam::minOp<Foam::scalar>());
+
+        if (Foam::mag(nearestDist - globalNearestDist) < Foam::SMALL)
+        {
+            refCelli = nearestCell;
+        }
+        else
+        {
+            refCelli = -1;
+        }
+
+        Foam::label hasRef = (refCelli >= 0 ? 1 : 0);
+        Foam::reduce(hasRef, Foam::sumOp<Foam::label>());
+
+        if (hasRef < 1)
+        {
+            FatalIOErrorInFunction(dict)
+                << "Unable to set reference cell for field " << p.name()
+                << Foam::nl << "    Reference point " << refPointName
+                << " " << refPointi
+                << " did not match any local cell centres"
+                << Foam::nl << Foam::exit(Foam::FatalIOError);
+        }
+    }
+    else
+    {
+        FatalIOErrorInFunction(dict)
+            << "Unable to set reference cell for field " << p.name()
+            << Foam::nl
+            << "    Please supply either " << refCellName
+            << " or " << refPointName << Foam::nl
+            << Foam::exit(Foam::FatalIOError);
+    }
+
+    dict.readEntry(refValueName, refValue);
+}
+
+
 const Foam::dictionary& solverControls
 (
     const Foam::fvMesh& mesh,
@@ -227,7 +330,7 @@ newtonIcoFluid::newtonIcoFluid
         ),
         mesh(),
         solutionLocation::CELLS,
-        fluidProperties().lookupOrDefault<Switch>("stopOnPetscError", true),
+        lookupSwitch(fluidProperties(), "stopOnPetscError", true),
         true
     ),
     Uf_(),
@@ -255,10 +358,7 @@ newtonIcoFluid::newtonIcoFluid
     ),
     scaleMixedPetScFields_
     (
-        fluidProperties().lookupOrDefault<Switch>
-        (
-            "scaleMixedPetScFields", false
-        )
+        lookupSwitch(fluidProperties(), "scaleMixedPetScFields", false)
     ),
     pressureUnknownScaleType_
     (
@@ -274,7 +374,7 @@ newtonIcoFluid::newtonIcoFluid
     blockSize_(fluidModel::twoD() ? 3 : 4),
     tsLogPtr_()
 {
-    setRefCell(p(), fluidProperties(), pRefCell_, pRefValue_);
+    setPressureReference(p(), fluidProperties(), pRefCell_, pRefValue_);
     //mesh().setFluxRequired(p().name());
 
     dictionary defaultMomentumStabSubDict;
@@ -422,10 +522,6 @@ newtonIcoFluid::newtonIcoFluid
         // }
     // }
 
-    const fvMesh& mesh = this->mesh();
-    const surfaceScalarField& phi = this->phi();
-    #include "CourantNo.H"
-
     if (mag(pressureScaleFactor_ - 1.0) > SMALL)
     {
         Info<< "pressureScaleFactor = " << pressureScaleFactor_ << endl;
@@ -510,6 +606,7 @@ newtonIcoFluid::newtonIcoFluid
             << ")" << endl;
     }
 }
+
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
@@ -673,14 +770,10 @@ bool newtonIcoFluid::evolve()
     //const bool checkMeshCourantNo = checkMeshCourantNo_;
     //const bool moveMeshOuterCorrectors = moveMeshOuterCorrectors_;
 
-    // Store U and p fields to allow under-relaxation
-    U.storePrevIter();
-    p().storePrevIter();
-
     // Solution predictor
     const Switch predictor
     (
-        fluidProperties().lookupOrDefault<Switch>("predictor", false)
+        lookupSwitch(fluidProperties(), "predictor", false)
     );
 
     const Switch adjustTimeStep
@@ -700,10 +793,7 @@ bool newtonIcoFluid::evolve()
     // KSP divergence, dtol) are still treated as failures.
     const Switch tolerateSnesNonConvergence
     (
-        fluidProperties().lookupOrDefault<Switch>
-        (
-            "tolerateSnesNonConvergence", false
-        )
+            lookupSwitch(fluidProperties(), "tolerateSnesNonConvergence", false)
     );
 
     label timeStepRetry = 0;
@@ -1104,7 +1194,7 @@ label newtonIcoFluid::formResidual
 
     // Lookup the forceImplicitFlux flag
     const Switch forceImplicitFlux =
-        fluidProperties().lookupOrDefault<Switch>("forceImplicitFlux", false);
+        lookupSwitch(fluidProperties(), "forceImplicitFlux", false);
 
     if (forceImplicitFlux || !extrapolatedFlux)
     {
@@ -1174,7 +1264,7 @@ label newtonIcoFluid::formResidual
       + momentumStabilisation().cellVector(&nuEfff, true)
     );
 
-    if (Switch(fluidProperties().lookupOrDefault<Switch>("addDivPhiUDamping", false)))
+    if (lookupSwitch(fluidProperties(), "addDivPhiUDamping", false))
     {
         residual -= 0.5*fvc::div(phiAbs)*U;
     }
@@ -1268,7 +1358,7 @@ label newtonIcoFluid::formJacobian
 
     surfaceScalarField& phi = this->phi();
     const Switch forceImplicitFlux =
-        fluidProperties().lookupOrDefault<Switch>("forceImplicitFlux", false);
+        lookupSwitch(fluidProperties(), "forceImplicitFlux", false);
 
     if (forceImplicitFlux || !extrapolatedFlux)
     {
@@ -1335,7 +1425,7 @@ label newtonIcoFluid::formJacobian
     rAUf() = -fvc::interpolate(1.0/UEqn.A());
     const surfaceScalarField& pStabGamma = pressureStabilisationGamma();
 
-    if (Switch(fluidProperties().lookupOrDefault<Switch>("addDivPhiUDamping", false)))
+    if (lookupSwitch(fluidProperties(), "addDivPhiUDamping", false))
     {
         UEqn -= 0.5*fvm::SuSp(fvc::div(phiAbs), U);
     }
@@ -1345,7 +1435,7 @@ label newtonIcoFluid::formJacobian
     (
         Switch
         (
-            fluidProperties().lookupOrDefault<Switch>("addNewtonDivPhiU", false)
+            lookupSwitch(fluidProperties(), "addNewtonDivPhiU", false)
         )
     )
     {
@@ -1561,7 +1651,7 @@ label newtonIcoFluid::precondition
       - fvm::div(phi, dU, "jacobian-div(phi,U)")
     );
 
-    if (Switch(fluidProperties().lookupOrDefault<Switch>("addDivPhiUDamping", false)))
+    if (lookupSwitch(fluidProperties(), "addDivPhiUDamping", false))
     {
         surfaceScalarField phiAbs("phiAbs", phi);
 

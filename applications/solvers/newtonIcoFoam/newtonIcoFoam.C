@@ -31,6 +31,8 @@ Author
 #include "fvCFD.H"
 #include "newtonIcoFluid.H"
 
+#include <cstdlib>
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
@@ -79,6 +81,9 @@ int main(int argc, char *argv[])
     fluid.end();
 
     Info<< nl << "End" << nl << endl;
+
+    // Avoid OpenFOAM/PETSc teardown aborts in the standalone v2512 PETSc build.
+    std::exit(0);
 
     return(0);
 }

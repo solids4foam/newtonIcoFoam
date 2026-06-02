@@ -34,7 +34,7 @@ jobs:
           echo "PETSC_DIR = $PETSC_DIR"
           test -d "$PETSC_DIR/include"
 
-      - name: Run smoke tests
+      - name: Run fluid tutorial tests
         shell: bash -l {0}
         run: |
           source /usr/lib/openfoam/openfoam2512/etc/bashrc
@@ -46,15 +46,32 @@ jobs:
           export PATH="${FOAM_MODULE_APPBIN}:${FOAM_USER_APPBIN}:${PATH}"
           export LD_LIBRARY_PATH="${FOAM_MODULE_LIBBIN}:${FOAM_USER_LIBBIN}:${LD_LIBRARY_PATH}"
 
-          newtonIcoFoam -help > log.newtonIcoFoamHelp
-          grep -q "newtonIcoFoam" log.newtonIcoFoamHelp
+          case=tutorials/fluids/cylinderInChannel
+          echo "Running ${case}"
 
-          cd tutorials/fluids/decayingTaylorGreenVortex
-          wmake initialiseTaylorGreenVortex
-          (cd src && ./Allwmake)
-          rm -rf 0
-          cp -r 0.orig 0
-          blockMesh > log.blockMesh
+          (
+            cd "${case}"
+            ./Allclean
+
+            source newtonIcoFluidScripts.sh
+            newtonIcoFluid::convertCaseFormat .
+
+            cp -f constant/fluidProperties.newtonIcoFluid constant/fluidProperties
+            cp -f system/fvSolution.newtonIcoFluid system/fvSolution
+
+            fluentMeshToFoam cylinderInChannel.msh > log.fluentMeshToFoam 2>&1
+            changeDictionary > log.changeDictionary 2>&1
+
+            foamDictionary system/controlDict -entry endTime -set 0.025
+            foamDictionary system/controlDict -entry functions -set "{}"
+            foamDictionary constant/fluidProperties \
+              -entry newtonIcoFluidCoeffs/pRefCell -set 0
+            foamDictionary constant/fluidProperties \
+              -entry newtonIcoFluidCoeffs/pRefValue -set 0
+
+            newtonIcoFoam > log.newtonIcoFoam 2>&1
+            grep -q "^End$" log.newtonIcoFoam
+          )
 
       - name: Upload tutorial logs
         if: ${{ failure() && env.ACT != 'true' }}

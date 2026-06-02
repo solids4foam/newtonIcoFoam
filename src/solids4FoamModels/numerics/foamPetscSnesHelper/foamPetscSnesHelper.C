@@ -667,6 +667,16 @@ label foamPetscSnesHelper::initialiseSnes()
             << "Pointer already set" << abort(FatalError);
     }
 
+    PetscBool petscInitialised = PETSC_FALSE;
+    AssertPETSc(PetscInitialized(&petscInitialised));
+
+    if (!petscInitialised)
+    {
+        // Initialise PETSc after the OpenFOAM model constructor setup has
+        // completed, but before creating any PETSc objects.
+        AssertPETSc(PetscInitialize(NULL, NULL, NULL, NULL));
+    }
+
     // Create the PETSc SNES object
     snes_.s = SNES();
     AssertPETSc(SNESCreate(PETSC_COMM_WORLD, &snes_.s));
@@ -801,11 +811,6 @@ foamPetscSnesHelper::foamPetscSnesHelper
     neiProcVolumes_(),
     snesHasRun_(false)
 {
-    if (initialise)
-    {
-        // Initialise PETSc without any options file or fvSolution lookup
-        PetscInitialize(NULL, NULL, NULL, NULL);
-    }
 }
 
 
@@ -815,16 +820,27 @@ foamPetscSnesHelper::~foamPetscSnesHelper()
 {
     if (initialised_)
     {
+        snes_.reset();
+        x_.reset();
+        xBackup_.reset();
+        A_.reset();
+        snesUserPtr_.clear();
+
         if (options_)
         {
             PetscOptionsDestroy(&options_);
         }
-        snesUserPtr_.clear();
 
-        WarningInFunction
-            << "Find a neat solution to finalise PETSc only once"
-            << endl;
-        //PetscFinalize();
+        PetscBool petscInitialised = PETSC_FALSE;
+        PetscBool petscFinalised = PETSC_FALSE;
+
+        PetscInitialized(&petscInitialised);
+        PetscFinalized(&petscFinalised);
+
+        if (petscInitialised && !petscFinalised)
+        {
+            PetscFinalize();
+        }
     }
 }
 
