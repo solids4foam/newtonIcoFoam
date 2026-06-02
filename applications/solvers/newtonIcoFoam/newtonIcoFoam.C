@@ -29,9 +29,7 @@ Author
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
-#include "newtonIcoFluid.H"
-
-#include <cstdlib>
+#include "physicsModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -41,36 +39,32 @@ int main(int argc, char *argv[])
 #   include "createTime.H"
 #   include "newtonIcoFoamWriteHeader.H"
 
-    Foam::autoPtr<Foam::fluidModels::newtonIcoFluid> fluidPtr
-    (
-        new Foam::fluidModels::newtonIcoFluid(runTime)
-    );
-    Foam::fluidModels::newtonIcoFluid& fluid = fluidPtr();
+    Foam::autoPtr<Foam::physicsModel> physics = Foam::physicsModel::New(runTime);
 
     while (runTime.run())
     {
         // Update deltaT, if desired, before moving to the next step
-        fluid.setDeltaT(runTime);
+        physics().setDeltaT(runTime);
 
         runTime++;
 
-        if (fluid.printInfo())
+        if (physics().printInfo())
         {
             Info<< "Time = " << runTime.timeName() << nl << endl;
         }
 
         // Solve the mathematical model
-        fluid.evolve();
+        physics().evolve();
 
         // Let the fluid model know the end of the time-step has been reached
-        fluid.updateTotalFields();
+        physics().updateTotalFields();
 
         if (runTime.outputTime())
         {
-            fluid.writeFields(runTime);
+            physics().writeFields(runTime);
         }
 
-        if (fluid.printInfo())
+        if (physics().printInfo())
         {
             Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
                 << "  ClockTime = " << runTime.elapsedClockTime() << " s"
@@ -78,12 +72,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    fluid.end();
+    physics().end();
 
     Info<< nl << "End" << nl << endl;
-
-    // Avoid OpenFOAM/PETSc teardown aborts in the standalone v2512 PETSc build.
-    std::exit(0);
 
     return(0);
 }

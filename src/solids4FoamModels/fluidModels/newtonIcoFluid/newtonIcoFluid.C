@@ -18,6 +18,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "newtonIcoFluid.H"
+#include "addToRunTimeSelectionTable.H"
 #include "fvc.H"
 #include "fvm.H"
 #include "findRefCell.H"
@@ -225,6 +226,7 @@ namespace fluidModels
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 defineTypeNameAndDebug(newtonIcoFluid, 0);
+addToRunTimeSelectionTable(fluidModel, newtonIcoFluid, dictionary);
 
 // * * * * * * * * * * * * * * * Private Members * * * * * * * * * * * * * * //
 
